@@ -1,0 +1,161 @@
+Sub PullData()
+
+Dim emptyCount As Integer 'count empty cells as we iterate down the sheet
+Dim sourceName As String 'the name of the worksheet we are pulling from
+Dim destName As String 'the name of the worksheet we are inserting to
+Dim sourceIndex As Integer 'row index for the sheet we are pulling from
+Dim destIndex As Integer 'row index for the sheet we are inserting to
+Dim rightIndex As Integer 'column index for the last header column
+Dim sourceSheet As Worksheet 'the worksheet we are pulling from
+Dim destSheet As Worksheet 'the worksheet we are inserting to
+Dim sourceRange As Range 'the range we are copying over
+Dim destRange As Range 'the range we will copy to
+
+Dim isSection As Boolean 'a true/false for whether we are in a region where we ought to be pulling data
+Dim endTrigger As Integer 'how many empty cells we should see before deciding the sheet is done
+
+Dim scContents As Variant 'this is the contents of the cell we are iterating over in the source sheet
+Dim one, two, three, four As String 'these variables are set to whatever headings indicate that there is data in a section, eg, "Drum Miner"
+'if there are any more equipment types added eg 2 rotor, another variable needs to be added above - one, two, three, four, five, etc
+Dim endSection As String 'this is the trigger string that indicates we have reached the end of a section
+Dim endRight As String 'this is the trigger string that indicates the last heading
+
+'these variables are used to construct the ranges that will be picked and placed
+Dim sourceStartAddress As String 'the cell address for the cell at the leftmost column of the source row
+Dim sourceEndAddress As String 'the cell address for the cell at the rightmost column of the source row
+Dim destStartAddress As String 'the cell address for the cell at the leftmost column of the destination row
+Dim destEndAddress As String 'the cell address for the cell at the rightmost column of the destination row
+
+'OUTLINE OF WHAT THIS DOES
+
+'define what the source and destination sheet names are
+'find the cell address where we are going to insert data in the destination sheet
+'work down the sheet (increasing the index and checking the conditions)
+'look for empty cells
+    'when we find an empty cell, add one to the empty count
+'look for start triggers - this will be the heading column
+    'when we find a start trigger then
+        'turn the issection boolean to true
+        'reset the empty count
+        'find the location of the last heading on the right
+    'if we find a cell with a value other than one of the predefined headings in it and the start trigger is active then
+        'get the address of that cell
+        'construct a range from that cell to the last spot we can expect data
+            '- either use a function to find the last heading or define it in a parameter
+        'insert the ranges value into the place determined by the destination address
+'look for end triggers - probably a cell value of "Total"
+'if the empty count gets too high, break the loop
+
+'END OF OUTLINE
+
+sourceName = "Take Off Sheet" 'user-defined
+destName = "Data Base" 'user-defined
+Set sourceSheet = Worksheets(sourceName)
+Set destSheet = Worksheets(destName)
+destStartAddress = FindLastDown(destSheet) 'function call to find the insertion point for data in the destination sheet
+sourceIndex = 0
+destIndex = destSheet.Range(destStartAddress).Row + 1
+emptyCount = 0
+endTrigger = 50 'user-defined, this assumes that there will never be a 50 cell gap between data
+isSection = False
+
+one = "Drum Miner": two = "OTHER": three = "9' 4R Miner": four = "8.5' 4R Miner"
+'user-defined. if there are any more headings for equipment type they have to be added here and 2 more places
+
+endSection = "Total" 'user-defined, this is the trigger indicating the end of a section
+endRight = "Back Ht" 'user-defined, this is the heading of the rightmost data we want to pull
+
+Do While emptyCount < endTrigger
+    
+    sourceIndex = sourceIndex + 1
+    scContents = sourceSheet.Cells(sourceIndex, 1).Value
+    
+    If IsEmpty(scContents) Then
+        emptyCount = emptyCount + 1
+    End If
+    
+    Select Case scContents 'checking the contents of the cell we are looking at and doing something accordingly
+    Case one, two, three, four 'if another equipment type is added, this needs to be extended - one, two, three, four, five, etc
+        isSection = True
+        destEndAddress = FindLastRight(sourceSheet, sourceIndex, endRight) 'function call to find the outermost cell with data we are interested in
+        rightIndex = sourceSheet.Range(destEndAddress).Column
+        'this case is for if the cells value is the same as any of our predefined headings
+    Case endSection
+        isSection = False
+        'thise case is to check if the cells value indicates we should stop pulling data, in this case "Total", to avoid pulling the stuff from the bottom of the sheet
+    Case Else
+        If Not IsEmpty(scContents) And scContents <> "" And isSection Then
+            destStartAddress = destSheet.Cells(destIndex, 1).Address
+            destEndAddress = destSheet.Cells(destIndex, rightIndex).Address
+            sourceStartAddress = sourceSheet.Cells(sourceIndex, 1).Address
+            sourceEndAddress = sourceSheet.Cells(sourceIndex, rightIndex).Address
+            Set sourceRange = sourceSheet.Range(sourceStartAddress, sourceEndAddress)
+            Set destRange = destSheet.Range(destStartAddress, destEndAddress)
+            'the above lines in the if statement body are to set the ranges we want to pull from and copy to
+            destRange.Value = sourceRange.Value
+            For i = 1 To destRange.Columns.Count
+                destRange(1, i).NumberFormat = sourceRange(1, i).NumberFormat
+            Next i
+            'the lines between this and the last comment are to copy over the data and to transfer number formatting
+            destIndex = destIndex + 1
+        End If
+        'This case is where we are actually pulling data
+    End Select
+    
+    
+Loop
+
+End Sub
+
+Function FindLastDown(wsIndex As Worksheet)
+'this function should return the the cell address of the last row in a sheet where there is data in the first column
+'cell address is a string
+Dim i As Integer
+Dim emptyCount As Integer
+
+i = 1
+emptyCount = 0
+
+Do While emptyCount < 50 'assumes there will never be a 50 cell gap between data
+    If Not IsEmpty(wsIndex.Cells(i, 1).Value) Then
+        FindLastDown = wsIndex.Cells(i, 1).Address
+        emptyCount = 0
+    Else:
+        emptyCount = emptyCount + 1
+    End If
+    i = i + 1
+Loop
+
+
+End Function
+
+Function FindLastRight(wsIndex As Worksheet, rowIndex As Integer, keyword As String)
+'this function should return the cell address of the column in a row with a certain keyword
+'if the keyword is not found, it should return the address of the last cell in the row with data in it
+'cell address is a string
+Dim j As Long
+Dim emptyCount As Integer
+Dim header As String
+
+j = 1
+emptyCount = 0
+
+
+Do While emptyCount < 50 'assumes there will never be a 50 cell gap between data
+    
+    header = wsIndex.Cells(rowIndex, j).Value
+    If StrComp(header, keyword) = 0 Then
+        FindLastRight = wsIndex.Cells(rowIndex, j).Address
+        Exit Do
+    End If
+    If Not IsEmpty(wsIndex.Cells(rowIndex, j).Value) Then
+        FindLastRight = wsIndex.Cells(rowIndex, j).Address
+        emptyCount = 0
+    Else:
+        emptyCount = emptyCount + 1
+    End If
+    
+    j = j + 1
+Loop
+
+End Function
