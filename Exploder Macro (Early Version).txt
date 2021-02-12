@@ -1,0 +1,77 @@
+//This macro will explode the standard sheet into day by day tons and headings
+Sub Explode()
+
+    Dim WS_Count As Integer
+    Dim RefRow As Integer
+    Dim InsRow As Integer
+    Dim DaysCol As Integer
+    Dim DateCol As Integer
+    Dim TonsCol As Integer
+    Dim HeadCol As Integer
+    Dim DelayCol As Integer
+    Dim TonsShiftCol As Integer
+    Dim NewDateCol As Integer
+    Dim NewTonsCol As Integer
+    Dim NewHeadCol As Integer
+    Dim TonsShiftColNew As Integer
+    Dim initDate As Variant
+    Dim DelayCount As Integer
+    
+    WS_Count = ActiveWorkbook.Worksheets.Count
+    DaysCol = 15
+    DateCol = 16
+    HeadCol = 3
+    TonsCol = 12
+    TonsShiftCol = 4
+    DelayCol = 5
+    NewDateCol = 1
+    NewHeadCol = 2
+    NewTonsCol = 3
+    TonsShiftColNew = 4
+    
+    For i = 1 To WS_Count - 1
+        RefRow = 6
+        InsRow = 50
+        Sheets(i).Select
+        initDate = Cells(RefRow, DateCol).Value
+        
+        Cells(InsRow, NewDateCol).Value = initDate
+        Cells(InsRow, NewDateCol).NumberFormat = "[$-F800]dddd, mmmm dd, yyyy"
+        Cells(InsRow, NewHeadCol).Value = Cells(RefRow, HeadCol).Value
+        Cells(InsRow, NewTonsCol).Value = Cells(RefRow, TonsCol).Value / Cells(RefRow, DaysCol).Value
+        Cells(InsRow, TonsShiftColNew).Value = Cells(RefRow, TonsShiftCol).Value * 2
+        
+        Do Until IsEmpty(Cells(RefRow, 1).Value)
+            
+            DelayCount = Round(Cells(RefRow, DelayCol).Value / 2)
+            
+            For j = 1 To CInt(Cells(RefRow, DaysCol).Value)
+                
+                InsRow = InsRow + 1
+                Cells(InsRow, NewDateCol).Value = Cells(InsRow - 1, NewDateCol).Value + 1
+                Cells(InsRow, NewDateCol).NumberFormat = "[$-F800]dddd, mmmm dd, yyyy"
+                Cells(InsRow, NewHeadCol).Value = Cells(RefRow, HeadCol).Value
+                Cells(InsRow, NewTonsCol).Value = Cells(RefRow, TonsCol).Value / Cells(RefRow, DaysCol).Value
+                
+                If DelayCount < 0 Then
+                    Cells(InsRow, TonsShiftColNew).Value = Cells(RefRow, TonsShiftCol).Value * 2
+                Else
+                    Cells(InsRow, TonsShiftColNew).Value = 0
+                End If
+                
+                DelayCount = DelayCount - 1
+                     
+            Next j
+            
+            RefRow = RefRow + 1
+        Loop
+    Next i
+            
+        
+
+
+
+
+
+
+End Sub

@@ -1,0 +1,43 @@
+Sub UpdateDate()
+'
+' UpdateDate Macro
+' This macro will update the date on each of the sheets. It also sets the first cumulative tonnage equal to the first tonnage.
+'
+    Dim updated_date As Variant
+    Dim WS_Count As Integer
+    Dim FirstRow As Integer
+    Dim DateCol As String
+    Dim TonsCol As String
+    Dim CummTons As String
+    Dim Sheet As Worksheet
+    
+    updated_date = InputBox("Enter plan release date: format MM/DD/YYYY")
+    WS_Count = ActiveWorkbook.Worksheets.Count
+    FirstRow = 6
+    DateCol = "Q"
+    TonsCol = "M"
+    CummTons = "N"
+    
+    For i = 1 To WS_Count
+        
+        Set Sheet = ThisWorkbook.Worksheets(i)
+        
+        If Sheet.Name <> "SCHEDULED DELAYS" Then
+            Sheet.Cells(1, "A").Value = "Updated "
+            Sheet.Cells(1, "B").Value = updated_date
+            Sheet.Range(Sheet.Cells(1, 1), Sheet.Cells(1, 2)).Font.Bold = True
+            Sheet.Range(Sheet.Cells(1, 1), Sheet.Cells(1, 2)).Font.Underline = xlUnderlineStyleSingle
+            
+            'list of currently cutting miners sheet names
+            If Sheet.Name = "DM#900" Or Sheet.Name = "DM#901" Or _
+                Sheet.Name = "DM#903" Or Sheet.Name = "DM#904" Or _
+                Sheet.Name = "4 ROTOR #500" Or Sheet.Name = "4 ROTOR #501" Then
+                
+                Sheet.Cells(FirstRow, DateCol).Value = updated_date
+                Sheet.Cells(FirstRow, CummTons).Value = Sheet.Cells(FirstRow, TonsCol).Value
+            End If
+        End If
+        
+    Next i
+
+End Sub

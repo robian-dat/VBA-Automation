@@ -1,0 +1,165 @@
+Function AddWorkbook(fname As String, fpath As String) 'adds a new workbook fname to the designated fpath directory
+
+Workbooks.Add
+ActiveWorkbook.SaveAs (fpath & "\" & fname)
+AddWorkbook = fpath & "\" & fname
+
+End Function
+
+
+Sub TonsReport()
+'Works with the standard mine schedule excel. Generates a day by day report for each miner.
+'Each miner gets: heading for each day, blended tons for the day, and planned tons for the day.
+    
+    Dim TargPath As String
+    Dim TargFile As String
+    Dim TargBook As Workbook
+    Dim CurSheet As Worksheet
+    Dim WS_Count As Integer
+    Dim RefRow As Integer
+    Dim InsRow As Integer
+    Dim DaysCol As String
+    Dim DateCol As String
+    Dim TonsCol As String
+    Dim HeadCol As String
+    Dim DelayCol As String
+    Dim SchDelayCol As String
+    Dim TonsShiftCol As String
+    Dim NewDateCol As Integer
+    Dim NewTonsCol As Integer
+    Dim NewHeadCol As Integer
+    Dim TonsShiftColNew As Integer
+    Dim initDate As Variant
+    Dim DelayCount As Integer
+    Dim SchedDDCnt As Integer
+    Dim DownDate As Long
+    Dim InsDate As Long
+    Dim DelTons As Double
+    Dim BlRoomTons As Double
+    Dim RoomTons As Double
+    Dim TonsRem As Double
+    Dim DayTons As Double
+    Dim BlDayTons As Double
+    
+    
+    WS_Count = ActiveWorkbook.Worksheets.Count
+    TargPath = ActiveWorkbook.Path
+    TargFile = ActiveWorkbook.Name & " TonsReport.xlsx"
+    Set TargBook = Workbooks.Open(AddWorkbook(TargFile, TargPath))
+    DaysCol = "P"
+    DateCol = "Q"
+    HeadCol = "C"
+    TonsCol = "M"
+    TonsShiftCol = "D"
+    DelayCol = "F"
+    SchDelayCol = "E"
+    NewDateCol = 1
+    NewHeadCol = 2
+    NewTonsCol = 3
+    TonsShiftColNew = 4
+    
+    
+    For i = 1 To WS_Count - 2 'Number of worksheets less the ones to ignore, e.g. Raisebore, Scheduled delays
+        Set CurSheet = TargBook.Sheets.Add(after:=TargBook.Worksheets(TargBook.Worksheets.Count)) 'add new sheet to target workbook at end
+        CurSheet.Name = ThisWorkbook.Worksheets(i).Name 'name the new sheet after the source sheet
+        RefRow = 6
+        InsRow = 1
+        initDate = ThisWorkbook.Worksheets(i).Cells(RefRow, DateCol).Value
+        RoomTons = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsCol).Value
+        
+        'initialize the first row in the new sheet
+        'unique because its date is taken from the source sheet
+        CurSheet.Cells(InsRow, NewDateCol).Value = initDate
+        CurSheet.Cells(InsRow, NewDateCol).NumberFormat = "[$-F800]dddd, mmmm dd, yyyy"
+        CurSheet.Cells(InsRow, NewHeadCol).Value = ThisWorkbook.Worksheets(i).Cells(RefRow, HeadCol).Value
+        DayTons = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsCol).Value / ThisWorkbook.Worksheets(i).Cells(RefRow, DaysCol).Value
+        CurSheet.Cells(InsRow, NewTonsCol).Value = DayTons
+        RoomTons = RoomTons - DayTons
+        CurSheet.Cells(InsRow, TonsShiftColNew).Value = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsShiftCol).Value * 2
+        
+        Do Until IsEmpty(ThisWorkbook.Worksheets(i).Cells(RefRow, 1).Value) 'stop loop when an empty cell is found in column 1 of the reference sheet
+            
+            DelayCount = ThisWorkbook.Worksheets(i).Cells(RefRow, DelayCol).Value
+            RoomTons = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsCol).Value 'used in daily rate calculations
+            BlRoomTons = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsCol).Value 'used in blended rate calculations
+            SchedDDCnt = 1
+            
+            For j = 1 To CInt(ThisWorkbook.Worksheets(i).Cells(RefRow, DaysCol).Value)
+            'convert the days a section takes to the nearest integer; run the code that many times
+            
+                InsRow = InsRow + 1 'increment the insertion row
+                BlDayTons = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsCol).Value / ThisWorkbook.Worksheets(i).Cells(RefRow, DaysCol).Value
+                DayTons = ThisWorkbook.Worksheets(i).Cells(RefRow, TonsShiftCol).Value * 2
+                
+                CurSheet.Cells(InsRow, NewDateCol).Value = CurSheet.Cells(InsRow - 1, NewDateCol).Value + 1
+                CurSheet.Cells(InsRow, NewDateCol).NumberFormat = "[$-F800]dddd, mmmm dd, yyyy"
+                CurSheet.Cells(InsRow, NewHeadCol).Value = ThisWorkbook.Worksheets(i).Cells(RefRow, HeadCol).Value
+                
+                'Blended tons fill logic start
+                If BlDayTons < BlRoomTons Then
+                    CurSheet.Cells(InsRow, NewTonsCol).Value = BlDayTons
+                ElseIf BlRoomTons < 1 Then
+                    CurSheet.Cells(InsRow, NewTonsCol).Value = 0
+                ElseIf BlDayTons > BlRoomTons Then
+                    CurSheet.Cells(InsRow, NewTonsCol).Value = BlRoomTons
+                End If
+                BlRoomTons = BlRoomTons - BlDayTons
+                'Blended tons fill logic end
+                
+                'Daily tons fill logic start
+                    'Setup delay section
+                If DelayCount <= 0 And RoomTons > DayTons Then
+                    If RoomTons < 2 * DayTons Then
+                        CurSheet.Cells(InsRow, TonsShiftColNew).Value = RoomTons
+                    Else
+                        CurSheet.Cells(InsRow, TonsShiftColNew).Value = DayTons
+                    End If
+                ElseIf RoomTons < DayTons Then
+                    If RoomTons > 0 Then
+                        CurSheet.Cells(InsRow, TonsShiftColNew).Value = RoomTons
+                    Else
+                        CurSheet.Cells(InsRow, TonsShiftColNew).Value = 0
+                    End If
+                ElseIf DelayCount = 1 Then
+                    CurSheet.Cells(InsRow, TonsShiftColNew).Value = DayTons / 2
+                ElseIf DelayCount > 1 Then
+                    CurSheet.Cells(InsRow, TonsShiftColNew).Value = 0
+                End If
+                
+                DelayCount = DelayCount - 2
+                
+                    'Scheduled delay section
+                If i > 5 Then 'This is to exclude drum miners from scheduled delays
+                                '***should change after Thyssen's contract over***
+                    Do Until IsEmpty(ThisWorkbook.Worksheets("SCHEDULED DELAYS").Cells(SchedDDCnt, 1).Value)
+                        DownDate = ThisWorkbook.Worksheets("SCHEDULED DELAYS").Cells(SchedDDCnt, 3).Value
+                        InsDate = CurSheet.Cells(InsRow, NewDateCol).Value
+                        DelTons = DayTons * (1 - ThisWorkbook.Worksheets("SCHEDULED DELAYS").Cells(SchedDDCnt, 4).Value)
+                        If InsDate = DownDate Then
+                            CurSheet.Cells(InsRow, TonsShiftColNew).Value = DelTons
+                            DelayCount = DelayCount + CInt(2 * ThisWorkbook.Worksheets("SCHEDULED DELAYS").Cells(SchedDDCnt, 4).Value)
+                            Exit Do
+                        ElseIf DownDate > InsDate Then
+                            Exit Do
+                        End If
+                        SchedDDCnt = SchedDDCnt + 1
+                    Loop
+                End If
+                
+                RoomTons = RoomTons - CurSheet.Cells(InsRow, TonsShiftColNew).Value
+                'Daily tons fill logic end
+                
+            Next j
+            
+            RefRow = RefRow + 1
+        Loop
+    Next i
+            
+        
+
+
+
+
+
+
+End Sub
